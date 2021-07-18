@@ -26,7 +26,7 @@ typedef struct Cache {
   // Parameters
   int setBits;     // s
   int linesPerSet; // E
-  int blockBits;   // k
+  int blockBits;   // k 
 
   // Core data structure
   Set *sets;
@@ -50,6 +50,8 @@ typedef struct Cache {
 unsigned long long cache_tag(const unsigned long long address,
                              const Cache *cache) {
   // TODO:
+  unsigned long long tag = 0; 
+  tag = address >> (cache->blockBits + cache->setBits);
   return tag;
 }
 
@@ -63,7 +65,10 @@ unsigned long long cache_tag(const unsigned long long address,
 unsigned long long cache_set(const unsigned long long address,
                              const Cache *cache) {
   // TODO:
-  return set;
+
+  unsigned long long set = 0;
+  set = (address >> cache->blockBits)&((1<<cache->setBits)-1);    
+  return set;  
 }
 
 /**
@@ -81,6 +86,21 @@ bool probe_cache(const unsigned long long address, const Cache *cache) {
          3. If line is valid and tag matches return true
          4. Set lru clock
   */
+  unsigned long long setval = cache_set(address, cache);
+  unsigned long long tagval = cache_tag(address, cache);
+  for(int i = 0; i < cache->linesPerSet; i++){
+    if(cache->sets[setval].lines[i].tag == tagval){
+      if(cache->sets[setval].lines[i].valid == 1){
+        //cache->hit_count++;
+        cache->sets[setval].lru_clock++;
+        cache->sets[setval].lines[i].lru_clock = cache->sets[setval].lru_clock;
+        return true;
+      }
+    }
+  }
+   cache->sets[setval].lru_clock++;
+  //cache->miss_count++;
+  return false;
 }
 
 /**
@@ -98,6 +118,20 @@ void allocate_cache(const unsigned long long address, const Cache *cache) {
  space.
        4. Set lru clock
 */
+  unsigned long long setval = cache_set(address,cache);
+  unsigned long long tagval = cache_tag(address,cache);
+  int j = 0;
+  for( int i = 0; i < cache->linesPerSet; i++){
+    if(cache->sets[setval].lines[i].valid == 0){
+      cache->sets[setval].lines[i].valid = 1;
+      cache->sets[setval].lines[i].tag = tagval;
+      j = i;
+    }
+  } 
+  //cache->miss_count++;   //increase miss count by one since inserting block means there was a miss 
+  cache->sets[setval].lru_clock++;
+  cache->sets[setval].lines[j].lru_clock = cache->sets[setval].lru_clock;
+ //complete insert for function
 }
 
 /**
@@ -116,6 +150,17 @@ TODO: 1. calculate tag and set values
      3. Insert block. If you do find an empty block return true;
      4. If you did not find empty block return false.
 */
+  unsigned long long setval = cache_set(address,cache);
+  unsigned long long tagval = cache_tag(address,cache);
+  for(int i = 0; i < cache->linesPerSet; i++){
+    if(cache->sets[setval].lines[i].valid == 0){
+      return true;
+    }
+  } 
+  return false;
+
+  //do you increment lru clock if you fail to find an empty set?
+
 }
 
 /**
@@ -133,6 +178,23 @@ TODO: 1. calculate tag and set values
      2. Iterate over all lines in set and sort them based on lru clock.
      3. Return the way/index of the block with the smallest lru clock
 */
+  unsigned long long setval = cache_set(address,cache);
+  unsigned long long tagval = cache_tag(address, cache);
+  int compare = cache->sets[setval].lines[0].lru_clock;
+  int smallest = 0;
+  unsigned long long index = 0; 
+
+  for(int i = 0; i < cache->linesPerSet; i++){
+    if(cache->sets[setval].lines[i].lru_clock < compare){
+      compare = cache->sets[setval].lines[i].lru_clock;
+      smallest = i;
+    }
+  }
+
+  cache->sets[setval].lru_clock++;   //increase set lru clock by one since access was made to set to return victim block
+  index = setval + smallest*sizeof(Line);
+  return index;     //confirm is the index to be returned is as an address of int 
+
 }
 
 /**
@@ -145,6 +207,15 @@ TODO: 1. calculate tag and set values
 void evict_cache(const unsigned long long address, int index, Cache *cache) {
 
   // TODO:
+  unsigned long long setval = cache_set(address,cache);
+  cache->sets[setval].lines[index].valid = 0;    //invalidate block
+  cache->sets[setval].lines[index].tag = 0;
+  //cache->eviction_count++;
+  cache->sets[setval].lru_clock++;  //increase lru clock since block from set has been evicted 
+  cache->sets[setval].lines[index].lru_clock = cache->sets[setval].lru_clock;  //set lines lru clock to set lru clock after eviction since block has been accessed 
+
+  //see if more implementation required for evict
+
 }
 
 /**
@@ -161,16 +232,59 @@ void operateCache(const unsigned long long address, Cache *cache) {
    * We provide you the statements to print in each condition. Use them.
    * You should display them only when displayTrace is activated
    */
-  if (cache->displayTrace)
+    if(probe_cache(address,cache) == true){
+      cache->hit_count++;
+      return;
+    }
+    if(probe_cache(address,cache) == false){
+      // If access misses in the cache and we needed to evict an entry to insert the
+      // block.
+      if(avail_cache(address,cache) == false){
+        int index = victim_cache(address,cache);
+        evict_cache(address,index,cache);
+        cache->miss_count++;
+        cache->eviction_count++;
+        allocate_cache(address,cache);
+      }
+      // If access misses in the cache we did not
+      else{
+        allocate_cache(address,cache);
+        cache->miss_count++;
+      }
+    }  
+
+    if (cache->displayTrace){
     // If access hit in the cache
-    printf(" hit ");
-  // If access misses in the cache and we needed to evict an entry to insert the
-  // block.
-  printf(" miss eviction ");
-  // If access misses in the cache we did not
-  printf(" miss ");
+    if(probe_cache(address,cache) == true){
+      //cache->hit_count++;
+      printf(" hit ");
+      return;
+    }
+
+    if(probe_cache(address,cache) == false){
+      // If access misses in the cache and we needed to evict an entry to insert the
+      // block.
+      if(avail_cache(address,cache) == false){
+        int index = victim_cache(address,cache);
+        evict_cache(address,index,cache);
+        //cache->miss_count++;
+        //cache->eviction_count++;
+        allocate_cache(address,cache);
+        printf(" miss eviction ");
+      }
+      // If access misses in the cache we did not
+      else{
+        allocate_cache(address,cache);
+        //cache->miss_count++;
+        printf(" miss ");
+      }
+    }
+    }
+  
   return;
+
 }
+
 
 // DO NOT MODIFY LINES HERE. OTHERWISE YOUR PROGRAM WILL FAIL
 // get the input from the file and call operateCache function to see if the
@@ -213,11 +327,35 @@ void operateFlags(char *traceFile, Cache *cache) {
  */
 void cacheSetUp(Cache *cache) {
   // TODO:
+  cache->eviction_count = 0;
+  cache->hit_count = 0;
+  cache->miss_count = 0;
+  int setbits = cache->setBits;
+  int noofsets = (int)pow(2,setbits);
+  cache->sets = (Set*)malloc(sizeof(Set)*noofsets);
+  for(int i = 0; i < noofsets; i++){
+    cache->sets[i].lines = (Line*)malloc(sizeof(Line)*cache->linesPerSet);
+  }
+
+  for(int i = 0; i < noofsets; i++){
+    cache->sets[i].lru_clock = 0;
+    for(int j = 0; j < cache->linesPerSet; j++){
+      cache->sets[i].lines[j].valid = 0;
+      cache->sets[i].lines[j].tag = 0;
+      cache->sets[i].lines[j].lru_clock = 0;
+      cache->sets[i].lines[j].block = 0;
+    }
+  }
+  //loop through all the set values when initializing
+  
 }
+
 
 /** Free up cache memory */
 void deallocate(Cache *cache) {
   // TODO:
+  free(cache->sets->lines);
+  free(cache->sets);
 }
 
 int main(int argc, char *argv[]) {
