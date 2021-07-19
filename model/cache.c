@@ -151,7 +151,6 @@ TODO: 1. calculate tag and set values
      4. If you did not find empty block return false.
 */
   unsigned long long setval = cache_set(address,cache);
-  unsigned long long tagval = cache_tag(address,cache);
   for(int i = 0; i < cache->linesPerSet; i++){
     if(cache->sets[setval].lines[i].valid == 0){
       return true;
@@ -179,10 +178,9 @@ TODO: 1. calculate tag and set values
      3. Return the way/index of the block with the smallest lru clock
 */
   unsigned long long setval = cache_set(address,cache);
-  unsigned long long tagval = cache_tag(address, cache);
   int compare = cache->sets[setval].lines[0].lru_clock;
   int smallest = 0;
-  unsigned long long index = 0; 
+  //unsigned long long index = 0; 
 
   for(int i = 0; i < cache->linesPerSet; i++){
     if(cache->sets[setval].lines[i].lru_clock < compare){
@@ -192,8 +190,8 @@ TODO: 1. calculate tag and set values
   }
 
   cache->sets[setval].lru_clock++;   //increase set lru clock by one since access was made to set to return victim block
-  index = setval + smallest*sizeof(Line);
-  return index;     //confirm is the index to be returned is as an address of int 
+  //index = setval + smallest*sizeof(Line);
+  return smallest;     //confirm is the index to be returned is as an address of int 
 
 }
 
@@ -212,7 +210,7 @@ void evict_cache(const unsigned long long address, int index, Cache *cache) {
   cache->sets[setval].lines[index].tag = 0;
   //cache->eviction_count++;
   cache->sets[setval].lru_clock++;  //increase lru clock since block from set has been evicted 
-  cache->sets[setval].lines[index].lru_clock = cache->sets[setval].lru_clock;  //set lines lru clock to set lru clock after eviction since block has been accessed 
+  //cache->sets[setval].lines[index].lru_clock = cache->sets[setval].lru_clock;  //set lines lru clock to set lru clock after eviction since block has been accessed 
 
   //see if more implementation required for evict
 
@@ -232,11 +230,40 @@ void operateCache(const unsigned long long address, Cache *cache) {
    * We provide you the statements to print in each condition. Use them.
    * You should display them only when displayTrace is activated
    */
+
+    if (cache->displayTrace){
+    // If access hit in the cache
+      if(probe_cache(address,cache) == true){
+        cache->hit_count++;
+        printf(" hit ");
+        return;
+      }
+
+    if(probe_cache(address,cache) == false){
+      // If access misses in the cache and we needed to evict an entry to insert the
+      // block.
+      if(avail_cache(address,cache) == false){
+        int index = victim_cache(address,cache);
+        evict_cache(address,index,cache);
+        allocate_cache(address,cache);
+        cache->miss_count++;
+        cache->eviction_count++;
+        printf(" miss eviction ");
+      }
+      // If access misses in the cache we did not
+      else{
+        allocate_cache(address,cache);
+        cache->miss_count++;
+        printf(" miss ");
+      }
+    }
+    return;
+    }
+
     if(probe_cache(address,cache) == true){
       cache->hit_count++;
-      return;
     }
-    if(probe_cache(address,cache) == false){
+    else if(probe_cache(address,cache) == false){
       // If access misses in the cache and we needed to evict an entry to insert the
       // block.
       if(avail_cache(address,cache) == false){
@@ -247,40 +274,12 @@ void operateCache(const unsigned long long address, Cache *cache) {
         allocate_cache(address,cache);
       }
       // If access misses in the cache we did not
-      else{
+      else if(avail_cache(address,cache) == true){
         allocate_cache(address,cache);
         cache->miss_count++;
       }
-    }  
+    } 
 
-    if (cache->displayTrace){
-    // If access hit in the cache
-    if(probe_cache(address,cache) == true){
-      //cache->hit_count++;
-      printf(" hit ");
-      return;
-    }
-
-    if(probe_cache(address,cache) == false){
-      // If access misses in the cache and we needed to evict an entry to insert the
-      // block.
-      if(avail_cache(address,cache) == false){
-        int index = victim_cache(address,cache);
-        evict_cache(address,index,cache);
-        //cache->miss_count++;
-        //cache->eviction_count++;
-        allocate_cache(address,cache);
-        printf(" miss eviction ");
-      }
-      // If access misses in the cache we did not
-      else{
-        allocate_cache(address,cache);
-        //cache->miss_count++;
-        printf(" miss ");
-      }
-    }
-    }
-  
   return;
 
 }
