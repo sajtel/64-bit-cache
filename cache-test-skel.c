@@ -19,8 +19,17 @@ Part 1 - Mystery Caches
 */
 int get_block_size(void) {
   /* YOUR CODE GOES HERE */
+  int size  = 0;
+  flush_cache();
+  access_cache(0);
+  while(access_cache(size)){
 
-  return -1;
+    size++;
+
+  }
+
+  return size;
+
 }
 
 /*
@@ -28,7 +37,35 @@ int get_block_size(void) {
 */
 int get_cache_size(int block_size) {
   /* YOUR CODE GOES HERE */
-  return -1;
+  int x = 0;
+  int index = 0;
+
+  while(1){
+    flush_cache();
+    access_cache(x);
+
+    int iterator = 1;
+
+    while(iterator <= index){
+
+      access_cache(iterator*block_size);
+      iterator++;
+
+    }
+
+    if(access_cache(x)){
+
+      index++;
+
+    }else{
+
+      break;
+
+    }
+
+  }
+
+  return index*block_size;
 }
 
 /*
@@ -36,7 +73,29 @@ int get_cache_size(int block_size) {
 */
 int get_cache_assoc(int cache_size) {
   /* YOUR CODE GOES HERE */
-  return -1;
+  int associativity = 0;
+  int x = 0;
+
+  flush_cache();
+  access_cache(x);
+
+  while(access_cache(x)){
+
+    flush_cache();
+    access_cache(x);
+
+    int iterator = 1;
+
+    while(iterator <= associativity+1){
+      access_cache(iterator*cache_size);
+      iterator++;
+    }
+
+    associativity++;
+
+  }
+  
+  return associativity;
 }
 
 int main(void) {

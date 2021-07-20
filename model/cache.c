@@ -125,7 +125,10 @@ void allocate_cache(const unsigned long long address, const Cache *cache) {
     if(cache->sets[setval].lines[i].valid == 0){
       cache->sets[setval].lines[i].valid = 1;
       cache->sets[setval].lines[i].tag = tagval;
+      cache->sets[setval].lru_clock++;
+      cache->sets[setval].lines[i].lru_clock = cache->sets[setval].lru_clock;
       j = i;
+      return;
     }
   } 
   //cache->miss_count++;   //increase miss count by one since inserting block means there was a miss 
